@@ -487,6 +487,24 @@ async function getCommitsFromRepo(token, username, repoName) {
   }
 }
 
+// Function to fetch all public repositories for the authenticated user
+async function getUserRepos(token) {
+	try {
+	  const response = await axios.get(
+		"https://api.github.com/user/repos?type=public",
+		{
+		  headers: {
+			Authorization: `token ${token}`,
+		  },
+		}
+	  );
+	  return response.data; // List of public repositories
+	} catch (error) {
+	  console.error("Failed to fetch repositories:", error);
+	  return [];
+	}
+  }
+
 // Function to log commit history for all public repositories
 async function logCommitHistory(token, username) {
   const repo = await getOrCreateRepo(token);
