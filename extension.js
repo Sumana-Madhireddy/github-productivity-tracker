@@ -136,16 +136,16 @@ async function createRepo(token, username) {
 }
 
 
-// Function to fetch all repositories for the authenticated user
+
+// Function to fetch all public repositories for the authenticated user
 async function getUserRepos(token) {
   try {
-    const response = await axios.get("https://api.github.com/user/repos", {
+    const response = await axios.get("https://api.github.com/user/repos?type=public", {
       headers: {
         Authorization: `token ${token}`,
       },
     });
-	console.log("User repos ",response.data);
-    return response.data; // List of repositories
+    return response.data; // List of public repositories
   } catch (error) {
     console.error("Failed to fetch repositories:", error);
     return [];
@@ -174,13 +174,13 @@ async function getCommitsFromRepo(token, username, repoName) {
   }
 }
 
-// Function to get and log commit history for all repositories
+// Function to get and log commit history for all public repositories
 async function logCommitHistory(token, username) {
   const repos = await getUserRepos(token);
 
   let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
 
-  // Iterate through all repositories and fetch commits
+  // Iterate through all public repositories and fetch commits
   for (let repo of repos) {
     const commits = await getCommitsFromRepo(token, username, repo.name);
     if (commits.length > 0) {
@@ -207,10 +207,9 @@ async function commitLogToRepo(token, logContent) {
     vscode.window.showErrorMessage("Failed to get GitHub username.");
     return;
   }
-
   try {
     const response = await axios.put(
-      `https://api.github.com/repos/${username}/code-tracking/logs/${filePath}`,
+      `https://api.github.com/repos/${username}/code-tracking/contents/${filePath}`,
       {
         message: `Log GitHub commit history - ${now.toLocaleString()}`,
         content: Buffer.from(logContent).toString("base64"),
@@ -260,6 +259,7 @@ module.exports = {
   activate,
   deactivate,
 };
+
 
 
 
