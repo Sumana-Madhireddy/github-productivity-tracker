@@ -1,14 +1,17 @@
 const vscode = require("vscode");
+require("dotenv").config();
 const axios = require("axios");
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const { exec } = require("child_process");
-require("dotenv").config();
 
 // const clientId = process.env.GITHUB_CLIENT_ID;
 // const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-// const redirectUri = "http://localhost:3000/auth/callback";
+// const redirectUri = process.env.REDIRECT_URI;
+// console.log('GITHUB_CLIENT_ID:', process.env.GITHUB_CLIENT_ID);
+// console.log('GITHUB_CLIENT_SECRET:', process.env.GITHUB_CLIENT_SECRET);
+// console.log('REDIRECT_URI:', process.env.REDIRECT_URI);
 
 const clientId = "Ov23litLcMtwjAREsAQw";
 const clientSecret = "e3ab6bfca79df0a932220f186bb31d968f75bc9e";
@@ -26,6 +29,8 @@ app.get("/auth/callback", (req, res) => {
 app.listen(3000, () => {
   console.log("OAuth callback server running on http://localhost:3000");
 });
+
+let taskCounter = 1;
 
 // Function to authenticate user via GitHub OAuth
 async function githubAuthentication() {
@@ -135,16 +140,17 @@ async function createRepo(token, username) {
   }
 }
 
-
-
 // Function to fetch all public repositories for the authenticated user
 async function getUserRepos(token) {
   try {
-    const response = await axios.get("https://api.github.com/user/repos?type=public", {
-      headers: {
-        Authorization: `token ${token}`,
-      },
-    });
+    const response = await axios.get(
+      "https://api.github.com/user/repos?type=public",
+      {
+        headers: {
+          Authorization: `token ${token}`,
+        },
+      }
+    );
     return response.data; // List of public repositories
   } catch (error) {
     console.error("Failed to fetch repositories:", error);
@@ -198,10 +204,39 @@ async function logCommitHistory(token, username) {
   await commitLogToRepo(token, logContent);
 }
 
+// Function to get and log commit history for all public repositories
+async function logCommitHistory(token, username) {
+	const repos = await getUserRepos(token);
+
+	let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
+	let hasCommits = false; // Flag to track if any commits exist
+
+	// Iterate through all public repositories and fetch commits
+	for (let repo of repos) {
+	  const commits = await getCommitsFromRepo(token, username, repo.name);
+	  if (commits.length > 0) {
+		hasCommits = true;
+		logContent += `### Repository: ${repo.name}\n`;
+		commits.forEach((commit) => {
+		  logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
+		});
+		logContent += "\n"; // Add a newline between repos with commits
+	  }
+	}
+
+	// Only commit the log if there are any commits in the last 30 minutes
+	if (hasCommits) {
+	  await commitLogToRepo(token, logContent);
+	} else {
+	  console.log("No commits in the last 30 minutes for any repositories.");
+	}
+  }
+
 // Function to commit the log content to the `code-tracking` repository
 async function commitLogToRepo(token, logContent) {
   const now = new Date();
-  const filePath = `${now.toISOString()}.md`; // Use current timestamp as file name
+//   const filePath = `${now.toISOString()}.md`; // Use current timestamp as file name
+  const filePath = `task${taskCounter}_log.md`;
   const username = await getUserUsername(token);
   if (!username) {
     vscode.window.showErrorMessage("Failed to get GitHub username.");
@@ -222,10 +257,12 @@ async function commitLogToRepo(token, logContent) {
       }
     );
     console.log("Log file committed:", response.data.content.name);
+	taskCounter++;
   } catch (error) {
     console.error("Error during commit:", error);
   }
 }
+
 
 // Example usage in your extension's activate function
 async function activate(context) {
@@ -259,100 +296,3 @@ module.exports = {
   activate,
   deactivate,
 };
-
-
-
-
-
-// // Function to get commit messages from the last 30 minutes
-// function getRecentCommits() {
-//   return new Promise((resolve, reject) => {
-//     const now = new Date();
-//     const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
-//     const sinceDate = thirtyMinutesAgo.toISOString();
-
-//     // Run the git log command to get commits since the last 30 minutes
-//     exec(
-//       `git log --since="${sinceDate}" --pretty=format:"%h - %s"`,
-//       (error, stdout, stderr) => {
-//         if (error || stderr) {
-//           reject(`Error fetching commits: ${error || stderr}`);
-//         }
-//         const commitMessages = stdout.split("\n").filter(Boolean);
-//         resolve(commitMessages);
-//       }
-//     );
-//   });
-// }
-
-// // Function to log work summary and commit it to GitHub
-// async function commitChanges(token, repo) {
-//   const recentCommits = await getRecentCommits();
-
-//   // Build the commit content
-//   const logContent = `
-//     ## Recent Commits in the Last 30 Minutes:
-
-//     ${recentCommits.length > 0 ? recentCommits.join("\n") : "No commits made."}
-
-//     Logged at: ${new Date().toLocaleString()}
-//   `;
-
-//   try {
-//     const response = await axios.put(
-//       `https://api.github.com/repos/${
-//         process.env.GITHUB_USERNAME
-//       }/code-tracking/contents/${new Date().toISOString()}.md`,
-//       {
-//         message: "Log recent commits",
-//         content: Buffer.from(logContent).toString("base64"),
-//         branch: "main",
-//       },
-//       {
-//         headers: {
-//           Authorization: `token ${token}`,
-//         },
-//       }
-//     );
-//     console.log("Log file committed:", response.data.content.name);
-//   } catch (error) {
-//     console.error("Error during commit:", error);
-//   }
-// }
-
-// // Activate the extension
-// async function activate(context) {
-//   console.log('Extension "GitHub Productivity Tracker" is now active!');
-
-//   let disposable = vscode.commands.registerCommand(
-//     "github-productivity-tracker.authenticate",
-//     async () => {
-//       try {
-//         const token = await githubAuthentication();
-//         console.log(`GitHub authentication successful, token: ${token}`);
-//         if (token) {
-//           const repo = await getOrCreateRepo(token);
-//           if (repo) {
-//             vscode.window.showInformationMessage(
-//               `Using repository ${repo.name}.`
-//             );
-//             setInterval(async () => {
-//               await commitChanges(token, repo);
-//             }, 1 * 60 * 1000); // Commit every 30 minutes
-//           }
-//         }
-//       } catch (error) {
-//         console.error("Error during authentication or repo access:", error);
-//       }
-//     }
-//   );
-
-//   context.subscriptions.push(disposable);
-// }
-
-// function deactivate() {}
-
-// module.exports = {
-//   activate,
-//   deactivate,
-// };
