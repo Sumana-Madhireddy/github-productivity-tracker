@@ -164,27 +164,6 @@ async function getTaskLogs(token, username, repoName) {
   }
 }
 
-// Function to fetch commits from a specific repository in the last 30 minutes
-async function getCommitsFromRepo(token, username, repoName) {
-  const now = new Date();
-  const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
-  const sinceDate = thirtyMinutesAgo.toISOString();
-
-  try {
-    const response = await axios.get(
-      `https://api.github.com/repos/${username}/${repoName}/commits?since=${sinceDate}`,
-      {
-        headers: {
-          Authorization: `token ${token}`,
-        },
-      }
-    );
-    return response.data; // List of commits
-  } catch (error) {
-    console.error(`Failed to fetch commits from ${repoName}:`, error);
-    return [];
-  }
-}
 
 // Function to fetch all public repositories for the authenticated user
 async function getUserRepos(token) {
@@ -202,64 +181,248 @@ async function getUserRepos(token) {
 	  console.error("Failed to fetch repositories:", error);
 	  return [];
 	}
-  }
+}
 
-// Function to log commit history for all public repositories
+// // Function to fetch commits from a specific repository in the last 30 minutes
+// async function getCommitsFromRepo(token, username, repoName) {
+// 	const now = new Date();
+// 	const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
+// 	const sinceDate = thirtyMinutesAgo.toISOString();
+  
+// 	try {
+// 	  const response = await axios.get(
+// 		`https://api.github.com/repos/${username}/${repoName}/commits?since=${sinceDate}`,
+// 		{
+// 		  headers: {
+// 			Authorization: `token ${token}`,
+// 		  },
+// 		}
+// 	  );
+// 	  return response.data; // List of commits
+// 	} catch (error) {
+// 	  console.error(`Failed to fetch commits from ${repoName}:`, error);
+// 	  return [];
+// 	}
+//   }
+
+async function getCommitsFromAllBranches(token, username, repoName) {
+	try {
+	  // Step 1: Get all branches of the repository
+	  const branchesResponse = await axios.get(
+		`https://api.github.com/repos/${username}/${repoName}/branches`,
+		{
+		  headers: { Authorization: `token ${token}` },
+		}
+	  );
+	  const branches = branchesResponse.data;
+  
+	  // Step 2: Fetch commits from each branch
+	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+	  let recentCommits = [];
+  
+	  for (const branch of branches) {
+		const commitsResponse = await axios.get(
+		  `https://api.github.com/repos/${username}/${repoName}/commits?sha=${branch.name}`,
+		  {
+			headers: { Authorization: `token ${token}` },
+		  }
+		);
+  
+		const branchCommits = commitsResponse.data.filter(
+		  (commit) => new Date(commit.commit.author.date) > thirtyMinutesAgo
+		);
+  
+		// Add branch name to each commit for clarity
+		branchCommits.forEach((commit) => {
+		  recentCommits.push({
+			branch: branch.name,
+			sha: commit.sha,
+			message: commit.commit.message,
+			date: commit.commit.author.date,
+		  });
+		});
+	  }
+  
+	  return recentCommits;
+	} catch (error) {
+	  console.error(`Failed to fetch commits for ${repoName}:`, error);
+	  return [];
+	}
+}
+
+// async function getRecentPRs(token, username, repoName) {
+// 	try {
+// 	  const response = await axios.get(
+// 		`https://api.github.com/repos/${username}/${repoName}/pulls?state=all`,
+// 		{
+// 		  headers: { Authorization: `token ${token}` },
+// 		}
+// 	  );
+	  
+// 	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+	  
+// 	  // Filter PRs where either the base or head branch was updated in the last 30 minutes
+// 	  const recentPRs = response.data.filter((pr) => {
+// 		const prUpdatedAt = new Date(pr.updated_at);
+// 		return prUpdatedAt > thirtyMinutesAgo;
+// 	  });
+  
+// 	  return recentPRs;
+// 	} catch (error) {
+// 	  console.error(`Failed to fetch PRs for ${repoName}:`, error);
+// 	  return [];
+// 	}
+// }
+
+// async function getRecentIssuesAndComments(token, username, repoName) {
+// 	try {
+// 	  const issuesResponse = await axios.get(
+// 		`https://api.github.com/repos/${username}/${repoName}/issues?state=all`,
+// 		{
+// 		  headers: { Authorization: `token ${token}` },
+// 		}
+// 	  );
+// 	  const commentsResponse = await axios.get(
+// 		`https://api.github.com/repos/${username}/${repoName}/issues/comments`,
+// 		{
+// 		  headers: { Authorization: `token ${token}` },
+// 		}
+// 	  );
+// 	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+// 	  return {
+// 		issues: issuesResponse.data.filter((issue) => new Date(issue.updated_at) > thirtyMinutesAgo),
+// 		comments: commentsResponse.data.filter((comment) => new Date(comment.updated_at) > thirtyMinutesAgo),
+// 	  };
+// 	} catch (error) {
+// 	  console.error(`Failed to fetch issues or comments for ${repoName}:`, error);
+// 	  return { issues: [], comments: [] };
+// 	}
+// }
+
+
+// async function logRecentActivities(token, username) {
+// 	const repos = await getUserRepos(token);
+// 	let logContent = "## GitHub Activity in the Last 30 Minutes:\n\n";
+// 	const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+// 	const recentCommitSummaries = [];
+  
+// 	for (const repo of repos) {
+// 	  logContent += `### Repository: ${repo.name}\n`;
+  
+// 	  const commits = await getCommitsFromAllBranches(token, username, repo.name);
+// 	  if (commits.length > 0) {
+// 		logContent += "#### Recent Commits:\n";
+// 		commits.forEach((commit) => {
+// 		  logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
+// 		  recentCommitSummaries.push(`${repo.name}: ${commit.commit.message}`);
+// 		});
+// 	  }
+  
+// 	  const prs = await getRecentPRs(token, username, repo.name);
+// 	  if (prs.length > 0) {
+// 		logContent += "#### Recent Pull Requests:\n";
+// 		prs.forEach((pr) => {
+// 		  logContent += `- PR #${pr.number}: ${pr.title} (Updated: ${pr.updated_at})\n`;
+// 		});
+// 	  }
+  
+// 	  const { issues, comments } = await getRecentIssuesAndComments(token, username, repo.name);
+// 	  if (issues.length > 0) {
+// 		logContent += "#### Recent Issues:\n";
+// 		issues.forEach((issue) => {
+// 		  logContent += `- Issue #${issue.number}: ${issue.title} (Updated: ${issue.updated_at})\n`;
+// 		});
+// 	  }
+  
+// 	  if (comments.length > 0) {
+// 		logContent += "#### Recent Comments:\n";
+// 		comments.forEach((comment) => {
+// 		  logContent += `- Comment on Issue #${comment.issue_url.split('/').pop()} (Updated: ${comment.updated_at})\n`;
+// 		});
+// 	  }
+  
+// 	  logContent += "\n";
+// 	}
+  
+// 	console.log(logContent); // You can replace this with committing to a log file
+// 	if (recentCommitSummaries.length > 0) {
+// 		await commitLogToRepo(token, logContent, nextTaskNumber, recentCommitSummaries);
+// 	} else {
+// 		console.log("No recent commits found in the last 30 minutes.");
+// 	}
+// }
+  
+
 async function logCommitHistory(token, username) {
-  const repo = await getOrCreateRepo(token);
-  const nextTaskNumber = await getNextTaskNumber(token, username);
+	const repo = await getOrCreateRepo(token);
+	const nextTaskNumber = await getNextTaskNumber(token, username);
   
-  let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
-  const repos = await getUserRepos(token);
+	let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
+	const repos = await getUserRepos(token);
+	const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+	const recentCommitSummaries = [];
   
-  // Iterate through all public repositories and fetch commits
-  for (let repo of repos) {
-    const commits = await getCommitsFromRepo(token, username, repo.name);
-    if (commits.length > 0) {
-      logContent += `### Repository: ${repo.name}\n`;
-      commits.forEach((commit) => {
-        logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
-      });
-    } else {
-      logContent += `### Repository: ${repo.name}\n- No commits made in the last 30 minutes.\n`;
-    }
-    logContent += "\n";
-  }
-
-  // Commit the log content to the `code-tracking` repository
-  await commitLogToRepo(token, logContent, nextTaskNumber);
+	for (let repo of repos) {
+		if (repo.name === "code-tracking") {
+			continue;
+		}
+	//   const commits = await getCommitsFromRepo(token, username, repo.name);
+	 	const commits = await getCommitsFromAllBranches(token, username, repo.name);
+	  	const recentCommits = commits.filter(commit => {
+		const commitDate = new Date(commit.commit.author.date);
+		return commitDate > thirtyMinutesAgo;
+	  });
+  
+	  if (recentCommits.length > 0) {
+		logContent += `### Repository: ${repo.name}\n`;
+		recentCommits.forEach(commit => {
+		  logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
+		  recentCommitSummaries.push(`${repo.name}: ${commit.commit.message}`);
+		});
+		logContent += "\n";
+	  }
+	}
+  
+	if (recentCommitSummaries.length > 0) {
+	  await commitLogToRepo(token, logContent, nextTaskNumber, recentCommitSummaries);
+	} else {
+	  console.log("No recent commits found in the last 30 minutes.");
+	}
 }
 
-// Function to commit the log content to the `code-tracking` repository
-async function commitLogToRepo(token, logContent, taskNumber) {
-  const now = new Date();
-  const filePath = `task${taskNumber}_log.md`;
-  const username = await getUserUsername(token);
-  if (!username) {
-    vscode.window.showErrorMessage("Failed to get GitHub username.");
-    return;
-  }
-
-  try {
-    const response = await axios.put(
-      `https://api.github.com/repos/${username}/code-tracking/contents/${filePath}`,
-      {
-        message: `Log GitHub commit history - ${now.toLocaleString()}`,
-        content: Buffer.from(logContent).toString("base64"),
-        branch: "main",
-      },
-      {
-        headers: {
-          Authorization: `token ${token}`,
-        },
-      }
-    );
-    console.log("Log file committed:", response.data.content.name);
-  } catch (error) {
-    console.error("Error during commit:", error);
-  }
+async function commitLogToRepo(token, logContent, taskNumber, recentCommitSummaries) {
+	const filePath = `task${taskNumber}_log.md`;
+	const username = await getUserUsername(token);
+	if (!username) {
+	  vscode.window.showErrorMessage("Failed to get GitHub username.");
+	  return;
+	}
+  
+	// Generate a summary of recent commits for the commit message
+	const commitSummary = recentCommitSummaries.length > 0 
+	  ? `${recentCommitSummaries.join("; ")}`
+	  : "No commits in the last 30 minutes";
+  
+	try {
+	  const response = await axios.put(
+		`https://api.github.com/repos/${username}/code-tracking/contents/${filePath}`,
+		{
+		  message: commitSummary,
+		  content: Buffer.from(logContent).toString("base64"),
+		  branch: "main",
+		},
+		{
+		  headers: {
+			Authorization: `token ${token}`,
+		  },
+		}
+	  );
+	  console.log("Log file committed:", response.data.content.name);
+	} catch (error) {
+	  console.error("Error during commit:", error);
+	}
 }
-
+  
 async function activate(context) {
 	console.log('Extension "GitHub Productivity Tracker" is now active!');
   
@@ -280,6 +443,7 @@ async function activate(context) {
   
 			  setInterval(async () => {
 				await logCommitHistory(token, username);
+				// await logRecentActivities(token, username);
 			  }, 1 * 60 * 1000); // Log every 30 minutes
 			} else {
 			  console.error('Failed to get or create repository.');
