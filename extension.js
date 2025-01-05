@@ -457,7 +457,7 @@ async function activate(context) {
 			  setInterval(async () => {
 				await logCommitHistory(token, username);
 				// await logRecentActivities(token, username);
-			  }, 30 * 60 * 1000); // Log every 30 minutes
+			  }, 1 * 60 * 1000); // Log every 30 minutes
 			} else {
 			  console.error('Failed to get or create repository.');
 			}
