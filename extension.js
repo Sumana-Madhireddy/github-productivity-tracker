@@ -336,52 +336,6 @@ async function getCommitsFromAllBranches(token, username, repoName) {
 	  return [];
 	}
   }
-  
-//   async function logCommitHistory(token, username) {
-// 	const repo = await getOrCreateRepo(token);
-// 	const nextTaskNumber = await getNextTaskNumber(token, username);
-  
-// 	let logContent = "## GitHub Activity in the Last 30 Minutes:\n\n";
-// 	const repos = await getUserRepos(token);
-// 	const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-// 	const recentCommitSummaries = [];
-  
-// 	for (let repo of repos) {
-// 	  if (repo.name === "code-tracking") {
-// 		continue;
-// 	  }
-  
-// 	  const commits = await getCommitsFromAllBranches(token, username, repo.name);
-// 	  const recentCommits = commits.filter(commit => {
-// 		const commitDate = new Date(commit.date);
-// 		return commitDate > thirtyMinutesAgo;
-// 	  });
-  
-// 	  const prs = await getRecentPRs(token, username, repo.name);
-  
-// 	  if (recentCommits.length > 0 || prs.length > 0) {
-// 		logContent += `### Repository: ${repo.name}\n`;
-  
-// 		recentCommits.forEach(commit => {
-// 		  logContent += `- Commit (${commit.branch}): ${commit.sha} - ${commit.message}\n`;
-// 		  recentCommitSummaries.push(`Commit in ${repo.name} (${commit.branch}): ${commit.message}`);
-// 		});
-  
-// 		prs.forEach(pr => {
-// 		  logContent += `- PR: ${pr.title} (ID: ${pr.id}) - ${pr.body || "No description"}\n`;
-// 		  recentCommitSummaries.push(`PR in ${repo.name}: ${pr.title}`);
-// 		});
-  
-// 		logContent += "\n";
-// 	  }
-// 	}
-  
-// 	if (recentCommitSummaries.length > 0) {
-// 	  await commitLogToRepo(token, logContent, nextTaskNumber, recentCommitSummaries);
-// 	} else {
-// 	  console.log("No recent commits or PRs found in the last 30 minutes.");
-// 	}
-// }
 
 async function logCommitHistory(token, username) {
 	const repo = await getOrCreateRepo(token);
@@ -488,6 +442,7 @@ async function activate(context) {
 	let disposable = vscode.commands.registerCommand(
 	  "github-productivity-tracker.authenticate",
 	  async () => {
+		vscode.window.showInformationMessage('Logging commit history...');
 		try {
 		  const token = await githubAuthentication();
 		  console.log(`GitHub authentication successful, token: ${token}`);
@@ -495,7 +450,6 @@ async function activate(context) {
 			const username = await getUserUsername(token);
 			console.log(`Authenticated as: ${username}`);
   
-			// Get or create the 'code-tracking' repository
 			let repo = await getOrCreateRepo(token);
   
 			if (repo) {
@@ -503,7 +457,7 @@ async function activate(context) {
 			  setInterval(async () => {
 				await logCommitHistory(token, username);
 				// await logRecentActivities(token, username);
-			  }, 1 * 60 * 1000); // Log every 30 minutes
+			  }, 30 * 60 * 1000); // Log every 30 minutes
 			} else {
 			  console.error('Failed to get or create repository.');
 			}
