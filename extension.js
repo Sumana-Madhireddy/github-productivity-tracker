@@ -69,28 +69,81 @@ async function githubAuthentication() {
   }
 }
 
-// Function to create a GitHub repository
-async function createRepo(token) {
-  try {
-    const response = await axios.post(
-      `https://api.github.com/user/repos`,
-      {
-        name: "code-tracking",
-        description: "A repository for tracking daily coding contributions",
-        private: false,
-      },
-      {
-        headers: {
-          Authorization: `token ${token}`,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    vscode.window.showErrorMessage("Failed to create repository.");
-    console.error("Error during repository creation:", error);
+// // Function to create a GitHub repository
+// async function createRepo(token) {
+//   try {
+//     const response = await axios.post(
+//       `https://api.github.com/user/repos`,
+//       {
+//         name: "code-tracking",
+//         description: "A repository for tracking daily coding contributions",
+//         private: false,
+//       },
+//       {
+//         headers: {
+//           Authorization: `token ${token}`,
+//         },
+//       }
+//     );
+//     return response.data;
+//   } catch (error) {
+//     vscode.window.showErrorMessage("Failed to create repository.");
+//     console.error("Error during repository creation:", error);
+//   }
+// }
+
+async function useExistingRepo(token) {
+	try {
+	  // Try to fetch the repository
+	  const repoResponse = await axios.get(
+		`https://api.github.com/repos/Sumana-Madhireddy/code-tracking`, // Replace with your actual GitHub username
+		{
+		  headers: {
+			Authorization: `token ${token}`,
+		  },
+		}
+	  );
+  
+	  // If the repository exists, return its data
+	  if (repoResponse.status === 200) {
+		console.log('Using existing repository:', repoResponse.data.name);
+		return repoResponse.data;
+	  }
+	} catch (error) {
+	  vscode.window.showErrorMessage("Failed to access the existing repository.");
+	  console.error("Error during repository access:", error);
+	  throw error;
+	}
   }
+  
+  // In your activate function, use the existing repository instead of creating a new one
+  async function activate(context) {
+	console.log('Extension "GitHub Productivity Tracker" is now active!');
+  
+	let disposable = vscode.commands.registerCommand(
+	  "github-productivity-tracker.authenticate",
+	  async () => {
+		try {
+		  const token = await githubAuthentication();
+		  console.log(`GitHub authentication successful, token: ${token}`);
+		  if (token) {
+			const repo = await useExistingRepo(token); // Use the existing repo
+			if (repo) {
+			  vscode.window.showInformationMessage(`Using existing repository ${repo.name}.`);
+			  setInterval(async () => {
+				await commitChanges();
+			  }, 1800000); // Commit every 30 minutes
+			}
+		  }
+		} catch (error) {
+		  console.error("Error during authentication or repo access:", error);
+		}
+	  }
+	);
+  
+	context.subscriptions.push(disposable);
 }
+  
 
 // // Function to commit changes every 30 minutes
 // async function commitChanges() {
@@ -140,32 +193,32 @@ async function commitChanges() {
 }
 
 // Activate the extension
-function activate(context) {
-  console.log('Extension "GitHub Productivity Tracker" is now active!');
+// function activate(context) {
+//   console.log('Extension "GitHub Productivity Tracker" is now active!');
 
-  let disposable = vscode.commands.registerCommand(
-    "github-productivity-tracker.authenticate",
-    async () => {
-      try {
-        const token = await githubAuthentication();
-		console.log(`GitHub authentication successful, token: ${token}`);
-        if (token) {
-          const repo = await createRepo(token);
-          if (repo) {
-            vscode.window.showInformationMessage(`Repository ${repo.name} created successfully.`);
-            setInterval(async () => {
-              await commitChanges();
-            }, 30 * 60 * 1000); // Commit every 30 minutes
-          }
-        }
-      } catch (error) {
-        console.error("Error during authentication or repo creation:", error);
-      }
-    }
-  );
+//   let disposable = vscode.commands.registerCommand(
+//     "github-productivity-tracker.authenticate",
+//     async () => {
+//       try {
+//         const token = await githubAuthentication();
+// 		console.log(`GitHub authentication successful, token: ${token}`);
+//         if (token) {
+//           const repo = await createRepo(token);
+//           if (repo) {
+//             vscode.window.showInformationMessage(`Repository ${repo.name} created successfully.`);
+//             setInterval(async () => {
+//               await commitChanges();
+//             }, 30 * 60 * 1000); // Commit every 30 minutes
+//           }
+//         }
+//       } catch (error) {
+//         console.error("Error during authentication or repo creation:", error);
+//       }
+//     }
+//   );
 
-  context.subscriptions.push(disposable);
-}
+//   context.subscriptions.push(disposable);
+// }
 
 function deactivate() {}
 
