@@ -250,29 +250,30 @@ async function getCommitsFromAllBranches(token, username, repoName) {
 	}
 }
 
-// async function getRecentPRs(token, username, repoName) {
-// 	try {
-// 	  const response = await axios.get(
-// 		`https://api.github.com/repos/${username}/${repoName}/pulls?state=all`,
-// 		{
-// 		  headers: { Authorization: `token ${token}` },
-// 		}
-// 	  );
+async function getRecentPRs(token, username, repoName) {
+	try {
+	  const response = await axios.get(
+		`https://api.github.com/repos/${username}/${repoName}/pulls?state=all`,
+		{
+		  headers: { Authorization: `token ${token}` },
+		}
+	  );
 	  
-// 	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 	  
-// 	  // Filter PRs where either the base or head branch was updated in the last 30 minutes
-// 	  const recentPRs = response.data.filter((pr) => {
-// 		const prUpdatedAt = new Date(pr.updated_at);
-// 		return prUpdatedAt > thirtyMinutesAgo;
-// 	  });
+	  // Filter PRs where either the base or head branch was updated in the last 30 minutes
+	  const recentPRs = response.data.filter((pr) => {
+		const prUpdatedAt = new Date(pr.updated_at);
+		return prUpdatedAt > thirtyMinutesAgo;
+	  });
+	  console.log("recentPRs: ",recentPRs);
+	  return recentPRs;
+	} catch (error) {
+	  console.error(`Failed to fetch PRs for ${repoName}:`, error);
+	  return [];
+	}
+}
   
-// 	  return recentPRs;
-// 	} catch (error) {
-// 	  console.error(`Failed to fetch PRs for ${repoName}:`, error);
-// 	  return [];
-// 	}
-// }
 
 // async function getRecentIssuesAndComments(token, username, repoName) {
 // 	try {
@@ -353,42 +354,163 @@ async function getCommitsFromAllBranches(token, username, repoName) {
 // }
   
 
-async function logCommitHistory(token, username) {
+// async function logCommitHistory(token, username) {
+// 	const repo = await getOrCreateRepo(token);
+// 	const nextTaskNumber = await getNextTaskNumber(token, username);
+  
+// 	let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
+// 	const repos = await getUserRepos(token);
+// 	const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+// 	const recentCommitSummaries = [];
+  
+// 	for (let repo of repos) {
+// 		if (repo.name === "code-tracking") {
+// 			continue;
+// 		}
+
+// 	 	const commits = await getCommitsFromAllBranches(token, username, repo.name);
+// 	  	const recentCommits = commits.filter(commit => {
+// 		const commitDate = new Date(commit.commit.author.date);
+// 		return commitDate > thirtyMinutesAgo;
+// 	  });
+  
+// 	  if (recentCommits.length > 0) {
+// 		logContent += `### Repository: ${repo.name}\n`;
+// 		recentCommits.forEach(commit => {
+// 		  logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
+// 		  recentCommitSummaries.push(`${repo.name}: ${commit.commit.message}`);
+// 		});
+// 		logContent += "\n";
+// 	  }
+// 	}
+  
+// 	if (recentCommitSummaries.length > 0) {
+// 	  await commitLogToRepo(token, logContent, nextTaskNumber, recentCommitSummaries);
+// 	} else {
+// 	  console.log("No recent commits found in the last 30 minutes.");
+// 	}
+// }
+
+async function getCommitsFromAllBranches(token, username, repoName) {
+	try {
+	  // Step 1: Get all branches of the repository
+	  const branchesResponse = await axios.get(
+		`https://api.github.com/repos/${username}/${repoName}/branches`,
+		{
+		  headers: { Authorization: `token ${token}` },
+		}
+	  );
+	  const branches = branchesResponse.data;
+  
+	  // Step 2: Fetch commits from each branch
+	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+	  let recentCommits = [];
+  
+	  for (const branch of branches) {
+		const commitsResponse = await axios.get(
+		  `https://api.github.com/repos/${username}/${repoName}/commits?sha=${branch.name}`,
+		  {
+			headers: { Authorization: `token ${token}` },
+		  }
+		);
+  
+		const branchCommits = commitsResponse.data.filter(
+		  (commit) => new Date(commit.commit.author.date) > thirtyMinutesAgo
+		);
+  
+		// Add branch name to each commit for clarity
+		branchCommits.forEach((commit) => {
+		  recentCommits.push({
+			branch: branch.name,
+			sha: commit.sha,
+			message: commit.commit.message,
+			date: commit.commit.author.date,
+		  });
+		});
+	  }
+  
+	  return recentCommits;
+	} catch (error) {
+	  console.error(`Failed to fetch commits for ${repoName}:`, error);
+	  return [];
+	}
+  }
+  
+  async function getRecentPRs(token, username, repoName) {
+	try {
+	  const response = await axios.get(
+		`https://api.github.com/repos/${username}/${repoName}/pulls?state=all`,
+		{
+		  headers: { Authorization: `token ${token}` },
+		}
+	  );
+  
+	  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  
+	  // Filter PRs where either the base or head branch was updated in the last 30 minutes
+	  const recentPRs = response.data.filter((pr) => {
+		const prUpdatedAt = new Date(pr.updated_at);
+		return prUpdatedAt > thirtyMinutesAgo;
+	  });
+	  return recentPRs;
+	} catch (error) {
+	  console.error(`Failed to fetch PRs for ${repoName}:`, error);
+	  return [];
+	}
+  }
+  
+  async function logCommitHistory(token, username) {
 	const repo = await getOrCreateRepo(token);
 	const nextTaskNumber = await getNextTaskNumber(token, username);
   
-	let logContent = "## GitHub Commit History in the Last 30 Minutes:\n\n";
+	let logContent = "## GitHub Activity in the Last 30 Minutes:\n\n";
 	const repos = await getUserRepos(token);
 	const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 	const recentCommitSummaries = [];
   
 	for (let repo of repos) {
-		if (repo.name === "code-tracking") {
-			continue;
-		}
-	//   const commits = await getCommitsFromRepo(token, username, repo.name);
-	 	const commits = await getCommitsFromAllBranches(token, username, repo.name);
-	  	const recentCommits = commits.filter(commit => {
-		const commitDate = new Date(commit.commit.author.date);
+	  if (repo.name === "code-tracking") {
+		continue;
+	  }
+  
+	  // Get commits for all branches
+	  const commits = await getCommitsFromAllBranches(token, username, repo.name);
+	  const recentCommits = commits.filter(commit => {
+		const commitDate = new Date(commit.date);
 		return commitDate > thirtyMinutesAgo;
 	  });
   
-	  if (recentCommits.length > 0) {
+	  // Get recent PRs
+	  const prs = await getRecentPRs(token, username, repo.name);
+  
+	  // If there are any commits or PRs in the last 30 minutes, log them
+	  if (recentCommits.length > 0 || prs.length > 0) {
 		logContent += `### Repository: ${repo.name}\n`;
+  
+		// Log commit messages
 		recentCommits.forEach(commit => {
-		  logContent += `- ${commit.sha}: ${commit.commit.message}\n`;
-		  recentCommitSummaries.push(`${repo.name}: ${commit.commit.message}`);
+		  logContent += `- Commit (${commit.branch}): ${commit.sha} - ${commit.message}\n`;
+		  recentCommitSummaries.push(`Commit in ${repo.name} (${commit.branch}): ${commit.message}`);
 		});
+  
+		// Log PR messages
+		prs.forEach(pr => {
+		  logContent += `- PR: ${pr.title} (ID: ${pr.id}) - ${pr.body || "No description"}\n`;
+		  recentCommitSummaries.push(`PR in ${repo.name}: ${pr.title}`);
+		});
+  
 		logContent += "\n";
 	  }
 	}
   
+	// Commit the log content to the `code-tracking` repository if there is any recent activity
 	if (recentCommitSummaries.length > 0) {
 	  await commitLogToRepo(token, logContent, nextTaskNumber, recentCommitSummaries);
 	} else {
-	  console.log("No recent commits found in the last 30 minutes.");
+	  console.log("No recent commits or PRs found in the last 30 minutes.");
 	}
 }
+  
 
 async function commitLogToRepo(token, logContent, taskNumber, recentCommitSummaries) {
 	const filePath = `task${taskNumber}_log.md`;
