@@ -1,7 +1,7 @@
 {
   "name": "github-productivity-tracker",
   "displayName": "GitHub productivity tracker",
-  "publisher": "GitHubProductivityTracker",
+  "publisher": "SumanaMadhireddy",
   "description": "A GitHub productivity VSCode extension that logs coding activity and generates contributions every 30 minutes by committing work summaries to a dedicated repository.",
   "version": "0.0.1",
   "engines": {
