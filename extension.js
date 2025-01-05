@@ -561,32 +561,6 @@ async function commitLogToRepo(token, logContent, taskNumber) {
   }
 }
 
-// // Example usage in your extension's activate function
-// async function activate(context) {
-//   console.log('Extension "GitHub Productivity Tracker" is now active!');
-
-//   let disposable = vscode.commands.registerCommand(
-//     "github-productivity-tracker.authenticate",
-//     async () => {
-//       try {
-//         const token = await githubAuthentication();
-//         console.log(`GitHub authentication successful, token: ${token}`);
-//         if (token) {
-//           const username = await getUserUsername(token);
-//           console.log(`Authenticated as: ${username}`);
-//           setInterval(async () => {
-//             await logCommitHistory(token, username);
-//           }, 1 * 60 * 1000); // Log every 30 minutes
-//         }
-//       } catch (error) {
-//         console.error("Error during authentication or repo access:", error);
-//       }
-//     }
-//   );
-
-//   context.subscriptions.push(disposable);
-// }
-
 async function activate(context) {
 	console.log('Extension "GitHub Productivity Tracker" is now active!');
   
@@ -604,9 +578,7 @@ async function activate(context) {
 			let repo = await getOrCreateRepo(token);
   
 			if (repo) {
-			  console.log(`Using repository: ${repo.name}`);
   
-			  // Now, start the commit logging process every 30 minutes
 			  setInterval(async () => {
 				await logCommitHistory(token, username);
 			  }, 1 * 60 * 1000); // Log every 30 minutes
